@@ -7,7 +7,11 @@ from moviepy.editor import ImageSequenceClip
 from streamlit_player import st_player
 from gtts import gTTS
 import tempfile
-import speech_recognition as sr
+# speech_recognition لن يعمل على Streamlit Cloud، لذا نضعه شرطًا للعمل محليًا
+try:
+    import speech_recognition as sr
+except:
+    sr = None
 
 # --- إعداد الواجهة ---
 st.set_page_config(page_title="ABDO SUPER Ai", page_icon="👹", layout="wide")
@@ -40,15 +44,8 @@ if not st.session_state["auth"]:
 # --- بعد تسجيل الدخول ---
 st.markdown("<h1 class='title'>ABDO SUPER Ai Ultimate</h1>", unsafe_allow_html=True)
 
-# --- رسالة ترحيب ---
-def welcome_message():
-    msg = "مرحبًا بك يا سيدي ABDO! 👑\nABDO SUPER Ai جاهز لتنفيذ أوامرك."
-    display_text = ""
-    for char in msg:
-        display_text += char
-        st.markdown(f"<div class='terminal-box'>{display_text}</div>", unsafe_allow_html=True)
-        time.sleep(0.01)
-welcome_message()
+# --- رسالة ترحيب (بدون sleep لتسريع التحميل) ---
+st.markdown("<div class='terminal-box'>مرحبًا بك يا سيدي ABDO! 👑<br>ABDO SUPER Ai جاهز لتنفيذ أوامرك.</div>", unsafe_allow_html=True)
 
 # --- تشغيل أغنية الخلفية ---
 if os.path.exists("media/Lonely.mp3"):
@@ -69,14 +66,6 @@ def save_memory(command, output):
     cursor.execute("INSERT INTO memory (command, output, timestamp) VALUES (?, ?, ?)",
                    (command, output, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     conn.commit()
-
-# --- slow motion print ---
-def slow_print(text):
-    display_text = ""
-    for char in text:
-        display_text += char
-        st.markdown(f"<div class='terminal-box'>{display_text}</div>", unsafe_allow_html=True)
-        time.sleep(0.01)
 
 # --- Autopilot: تنفيذ الأوامر ---
 def autopilot_execute(command, uploaded_file=None, speak=False):
@@ -153,24 +142,10 @@ with col2:
 with col3:
     send = st.button("إرسال")
 
-# --- أوامر صوتية ---
-voice_input = st.button("🎤 تسجيل صوت")
-if voice_input:
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎙️ تحدث الآن...")
-        audio = r.listen(source, phrase_time_limit=5)
-        try:
-            voice_text = r.recognize_google(audio, language="ar-EG")
-            st.success(f"تم تحويل الصوت إلى نص: {voice_text}")
-            query = voice_text
-        except Exception as e:
-            st.error(f"خطأ في التعرف على الصوت: {e}")
-
 # --- تنفيذ الأمر ---
 if (send and query) or uploaded_file is not None:
     res = autopilot_execute(query, uploaded_file, speak=True)
-    slow_print(res)
+    st.markdown(f"<div class='terminal-box'>{res}</div>", unsafe_allow_html=True)
 
 # --- عرض آخر 20 مهمة ---
 if st.checkbox("📂 عرض ذاكرة المهام السابقة"):
