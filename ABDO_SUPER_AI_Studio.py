@@ -7,6 +7,7 @@ from moviepy.editor import ImageSequenceClip
 from streamlit_player import st_player
 from gtts import gTTS
 import tempfile
+
 # speech_recognition لن يعمل على Streamlit Cloud، لذا نضعه شرطًا للعمل محليًا
 try:
     import speech_recognition as sr
@@ -26,15 +27,17 @@ h1.title { font-size: 50px; color: #00FF00; text-align: center; font-family: 'Ar
 </style>
 """, unsafe_allow_html=True)
 
-# --- حماية بكلمة المرور ---
+# --- حماية بكلمة المرور محسنة ---
 if "auth" not in st.session_state:
     st.session_state["auth"] = False
 
 if not st.session_state["auth"]:
     st.markdown("<h1 class='title'>🔒 ABDO SUPER Ai LOGIN</h1>", unsafe_allow_html=True)
     pwd = st.text_input("أدخل كلمة المرور الخاصة بك:", type="password")
+    
     if st.button("تفعيل الدخول"):
-        if pwd == "ABDODEMON":
+        # إزالة أي مسافات والتحويل للحروف الصغيرة لتجاهل حالة الأحرف
+        if pwd.strip().lower() == "abdodemon":
             st.session_state["auth"] = True
             st.experimental_rerun()
         else:
@@ -44,7 +47,7 @@ if not st.session_state["auth"]:
 # --- بعد تسجيل الدخول ---
 st.markdown("<h1 class='title'>ABDO SUPER Ai Ultimate</h1>", unsafe_allow_html=True)
 
-# --- رسالة ترحيب (بدون sleep لتسريع التحميل) ---
+# --- رسالة ترحيب ---
 st.markdown("<div class='terminal-box'>مرحبًا بك يا سيدي ABDO! 👑<br>ABDO SUPER Ai جاهز لتنفيذ أوامرك.</div>", unsafe_allow_html=True)
 
 # --- تشغيل أغنية الخلفية ---
