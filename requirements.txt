@@ -6,3 +6,6 @@ openai
 pillow
 numpy
 gtts
+moviepy
+imageio
+imageio-ffmpeg
