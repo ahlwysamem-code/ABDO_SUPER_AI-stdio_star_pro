@@ -1,155 +1,154 @@
 import streamlit as st
-import os
-import sqlite3
 from datetime import datetime
 from PIL import Image
-from gtts import gTTS
-import tempfile
-import zipfile
+import io, requests
+import docx
+import fitz  # PyMuPDF
 import openai
+import os
 
-# --- إعداد الصفحة ---
-st.set_page_config(page_title="ABDO SUPER AI V4", page_icon="🤖", layout="wide")
+###########################################
+# إعداد OpenAI API
+###########################################
+# ضع مفتاح API الخاص بك هنا
+openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else os.getenv("OPENAI_API_KEY")
 
-# --- تصميم واجهة الدردشة ---
+###########################################
+# إعداد الصفحة Streamlit
+###########################################
+st.set_page_config(page_title="DEMON 😈 GPT AI By ABDO", layout="wide")
+
 st.markdown("""
 <style>
-body{background:black;color:white}
-.chat-user{background:#0084ff;padding:10px;border-radius:10px;color:white;margin:5px;text-align:right}
-.chat-ai{background:#222;padding:10px;border-radius:10px;color:white;margin:5px;text-align:left}
+body{background:#050505;color:white;font-family:Arial;}
+.title{
+font-size:50px;color:#ff0000;text-align:center;
+text-shadow:0 0 10px red,0 0 20px red,0 0 40px #ff0000,0 0 60px #ff0000;font-weight:bold;}
+.chat-user{background:#111;padding:14px;border-radius:20px;margin:5px;text-align:right;border:1px solid #333;box-shadow: 0 0 10px #00ffff;}
+.chat-ai{background:#0f0f0f;padding:14px;border-radius:20px;margin:5px;text-align:left;border:1px solid #ff0000;color:#ff4444;box-shadow: 0 0 15px #ff0000;}
+textarea{background:#111;color:white;}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🤖 ABDO SUPER AI V4")
+st.markdown("<div class='title'>DEMON 😈 GPT AI By ABDO</div>", unsafe_allow_html=True)
 
-# --- تسجيل الدخول ---
-if "auth" not in st.session_state:
-    st.session_state.auth=False
+###########################################
+# ذاكرة المحادثة طويلة
+###########################################
+if "memory" not in st.session_state:
+    st.session_state.memory = []
 
-if not st.session_state.auth:
-    password = st.text_input("كلمة المرور", type="password")
-    if st.button("تسجيل الدخول"):
-        if password=="ABDODEMON":
-            st.session_state.auth=True
-        else:
-            st.error("كلمة المرور خاطئة")
-    st.stop()
-
-# --- إنشاء المجلدات ---
-ROOT="abdo_data"
-os.makedirs(ROOT, exist_ok=True)
-
-# --- قاعدة البيانات ---
-conn = sqlite3.connect("memory.db", check_same_thread=False)
-cursor = conn.cursor()
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS memory(
-command TEXT,
-result TEXT,
-time TEXT
-)
-""")
-conn.commit()
-
-def save_memory(cmd,res):
-    cursor.execute(
-        "INSERT INTO memory VALUES (?,?,?)",
-        (cmd,res,datetime.now().strftime("%Y-%m-%d %H:%M"))
+###########################################
+# دالة الذكاء الاصطناعي GPT
+###########################################
+def ai_chat(prompt, model="gpt-4"):
+    """التحدث مع GPT الحقيقي مع استخدام الذاكرة الطويلة"""
+    context = ""
+    for chat in st.session_state.memory[-20:]:  # آخر 20 رسالة
+        context += f"User: {chat['user']}\nAI: {chat['ai']}\n"
+    context += f"User: {prompt}\nAI:"
+    
+    response = openai.Completion.create(
+        engine=model,
+        prompt=context,
+        max_tokens=300,
+        temperature=0.7,
+        top_p=0.95,
+        n=1,
+        stop=["User:", "AI:"]
     )
-    conn.commit()
+    return response.choices[0].text.strip()
 
-# --- تنفيذ الأوامر ---
-def execute(cmd):
+###########################################
+# رفع وتحليل الملفات
+###########################################
+st.sidebar.title("📂 File Analyzer")
+file = st.sidebar.file_uploader("Upload txt, pdf, or docx")
 
-    cmd_lower = cmd.lower()
-
-    # أوامر مخصصة
-    if "لعبة" in cmd_lower:
-        os.makedirs("game_project", exist_ok=True)
-        with open("game_project/game.py","w") as f:
-            f.write("print('مشروع لعبة جديد')")
-        result = "🎮 تم إنشاء مشروع لعبة"
-
-    elif "صورة" in cmd_lower:
-        img = Image.new("RGB",(512,512),(0,255,0))
-        path = "image.png"
-        img.save(path)
-        st.image(path)
-        result = "🖼️ تم إنشاء صورة"
-
-    elif "موقع" in cmd_lower:
-        os.makedirs("site", exist_ok=True)
-        with open("site/index.html","w") as f:
-            f.write("<h1>مرحبا بك في موقع ABDO</h1>")
-        result = "🌐 تم إنشاء موقع HTML"
-
-    else:
-        # --- الذكاء الاصطناعي الحقيقي OpenAI ---
+if file:
+    content_preview = ""
+    if file.name.endswith(".txt"):
         try:
-            openai.api_key = st.secrets["OPENAI_KEY"]
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[{"role":"user","content":cmd}]
-            )
-            result = response.choices[0].message.content
-        except Exception as e:
-            result = f"[!] خطأ في الاتصال بـ OpenAI: {e}"
+            content = file.read().decode("utf-8")
+        except:
+            content = str(file.read())
+        content_preview = content[:1000]
+    elif file.name.endswith(".pdf"):
+        doc = fitz.open(stream=file.read(), filetype="pdf")
+        content = ""
+        for page in doc:
+            content += page.get_text()
+        content_preview = content[:1000]
+    elif file.name.endswith(".docx"):
+        doc = docx.Document(file)
+        content = "\n".join([p.text for p in doc.paragraphs])
+        content_preview = content[:1000]
+    st.sidebar.write("Preview (first 1000 chars):")
+    st.sidebar.write(content_preview)
 
-    save_memory(cmd,result)
-    return result
+###########################################
+# توليد الصور AI
+###########################################
+st.sidebar.title("🖼 Image Generator")
+img_prompt = st.sidebar.text_input("Enter prompt for image")
 
-# --- تخزين المحادثة ---
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if st.sidebar.button("Generate Image"):
+    try:
+        hf_token = st.secrets.get("HUGGINGFACE_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
+        url="https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2"
+        headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else {}
+        response = requests.post(url,json={"inputs":img_prompt}, headers=headers)
+        if response.status_code==200:
+            img = Image.open(io.BytesIO(response.content))
+            st.image(img)
+        else:
+            st.sidebar.write("Image generation failed")
+    except Exception as e:
+        st.sidebar.write("Error:", e)
 
-# --- عرض المحادثة السابقة ---
-for msg in st.session_state.messages:
-    if msg["role"]=="user":
-        st.markdown(f"<div class='chat-user'>{msg['content']}</div>", unsafe_allow_html=True)
-    else:
-        st.markdown(f"<div class='chat-ai'>{msg['content']}</div>", unsafe_allow_html=True)
+###########################################
+# الترجمة
+###########################################
+st.sidebar.title("🌐 Translator")
+translate_text = st.sidebar.text_input("Text to translate")
 
-# --- إدخال رسالة جديدة ---
-prompt = st.chat_input("اكتب رسالتك...")
+if st.sidebar.button("Translate"):
+    try:
+        url="https://api.mymemory.translated.net/get"
+        r=requests.get(url,params={"q":translate_text,"langpair":"auto|en"})
+        st.sidebar.write(r.json()["responseData"]["translatedText"])
+    except Exception as e:
+        st.sidebar.write("Translation error:", e)
 
-if prompt:
-    # إضافة رسالة المستخدم
-    st.session_state.messages.append({"role":"user","content":prompt})
+###########################################
+# توليد أكواد مشاريع كاملة
+###########################################
+st.sidebar.title("💻 Project Code Generator")
+code_prompt = st.sidebar.text_input("Describe code you want")
 
-    # تنفيذ الأمر أو سؤال الذكاء الاصطناعي
-    result = execute(prompt)
+if st.sidebar.button("Generate Code"):
+    try:
+        code_output = ai_chat(code_prompt)
+        st.sidebar.code(code_output)
+    except Exception as e:
+        st.sidebar.write("Code generation error:", e)
 
-    # إضافة رد الذكاء الاصطناعي
-    st.session_state.messages.append({"role":"assistant","content":result})
+###########################################
+# الدردشة
+###########################################
+user_message = st.text_input("Your Message")
 
-    # تحويل الرد إلى صوت
-    tts = gTTS(result, lang="ar")
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    tts.save(tmp.name)
-    st.audio(tmp.name)
+if st.button("Send") and user_message.strip():
+    ai_response = ai_chat(user_message)
+    st.session_state.memory.append({
+        "user": user_message,
+        "ai": ai_response,
+        "time": datetime.now()
+    })
 
-# --- رفع الملفات ---
-st.sidebar.title("📁 رفع ملفات")
-uploaded_file = st.sidebar.file_uploader("اختر ملف")
-
-if uploaded_file:
-    path = os.path.join(ROOT, uploaded_file.name)
-    with open(path,"wb") as f:
-        f.write(uploaded_file.getbuffer())
-    st.sidebar.success("تم رفع الملف")
-
-# --- عرض الذاكرة ---
-if st.sidebar.checkbox("عرض الذاكرة"):
-    rows = cursor.execute("SELECT * FROM memory").fetchall()
-    for r in rows:
-        st.sidebar.write(r)
-
-# --- تنزيل المشاريع ZIP ---
-if st.sidebar.button("تحميل المشاريع"):
-    zip_path = "projects.zip"
-    with zipfile.ZipFile(zip_path,"w") as z:
-        for root_dir, dirs, files in os.walk("."):
-            for file in files:
-                z.write(os.path.join(root_dir, file))
-    with open(zip_path,"rb") as f:
-        st.download_button("تحميل المشاريع", f, "projects.zip")
+###########################################
+# عرض المحادثة
+###########################################
+for chat in reversed(st.session_state.memory):
+    st.markdown(f"<div class='chat-user'>{chat['user']}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='chat-ai'>{chat['ai']}</div>", unsafe_allow_html=True)
