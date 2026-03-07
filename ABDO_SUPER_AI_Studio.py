@@ -36,13 +36,12 @@ if not st.session_state["auth"]:
     pwd = st.text_input("أدخل كلمة المرور الخاصة بك:", type="password")
     
     if st.button("تفعيل الدخول"):
-        # إزالة أي مسافات والتحويل للحروف الصغيرة لتجاهل حالة الأحرف
-        if pwd.strip().lower() == "abdodemon":
+        if pwd.strip().lower() == "abdodemon":  # تجاهل الحالة والمسافات
             st.session_state["auth"] = True
-            st.experimental_rerun()
+            st.success("✔️ تم تسجيل الدخول بنجاح!")
         else:
             st.error("⚠️ كلمة المرور غير صحيحة!")
-    st.stop()
+    st.stop()  # توقف التنفيذ حتى يتم تسجيل الدخول
 
 # --- بعد تسجيل الدخول ---
 st.markdown("<h1 class='title'>ABDO SUPER Ai Ultimate</h1>", unsafe_allow_html=True)
