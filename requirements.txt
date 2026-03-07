@@ -1,11 +1,5 @@
-streamlit
-requests
-beautifulsoup4
-lxml
-openai
+streamlit  
 pillow
-numpy
 gtts
-moviepy
-imageio
-imageio-ffmpeg
+pygame
+openai
